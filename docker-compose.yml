@@ -1,0 +1,69 @@
+version: '2.3'
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    command: rabbitmq-server
+    volumes:
+        - ./.docker/rabbitmq/data/:/var/lib/rabbitmq/
+        - ./.docker/rabbitmq/logs/:/var/log/rabbitmq/
+    environment:
+        RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
+        RABBITMQ_DEFAULT_USER: "rabbitmq"
+        RABBITMQ_DEFAULT_PASS: "rabbitmq"
+    ports:
+        - 5672:5672
+        - 8080:15672
+    healthcheck:
+        test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+        interval: 5s
+        timeout: 15s
+        retries: 2
+    networks:
+      - kafka
+
+  zen-goducer:
+    build:
+      context: zen-goducer/
+    environment:
+      KAFKA_URL: ${KAFKA_URL}
+      KAFKA_READ_TOPIC: ${KAFKA_READ_TOPIC}
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_RECEIVER_QUEUE: ${RABBITMQ_RECEIVER_QUEUE}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE}
+      RABBITMQ_BINDING_KEY: ${RABBITMQ_BINDING_KEY}
+    depends_on: 
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - kafka
+
+  zen-gosumer:
+    build:
+      context: zen-gosumer/
+    environment:
+      KAFKA_URL: ${KAFKA_URL}
+      KAFKA_WRITE_TOPIC: ${KAFKA_WRITE_TOPIC}
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_RESENDER_QUEUE: ${RABBITMQ_RESENDER_QUEUE}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE}
+      RABBITMQ_BINDING_KEY: ${RABBITMQ_BINDING_KEY}
+    depends_on: 
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - kafka
+
+networks:
+  kafka:
+    external: true
+    name: kafka_localnet
